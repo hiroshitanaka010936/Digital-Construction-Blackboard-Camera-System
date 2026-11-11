@@ -1,0 +1,1047 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="工事黒板カメラ" />
+  <meta name="theme-color" content="#0D5A34" />
+  <title>デジタル工事黒板カメラ</title>
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="application-name" content="工事黒板カメラ" />
+  <meta name="format-detection" content="telephone=no" />
+
+  <style>
+    :root {
+      --board-green: #0D5A34;
+      --primary: #1E3A8A;
+      --accent: #EA580C;
+      --success: #059669;
+      --bg: #F3F4F6;
+      --card: #FFFFFF;
+      --text: #111827;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      margin: 0; padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Meiryo", sans-serif;
+      background: var(--bg); color: var(--text);
+      overflow-x: hidden;
+    }
+    header {
+      background: var(--primary); color: #fff;
+      padding: 12px 16px; position: sticky; top: 0; z-index: 100;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    header h1 { margin: 0; font-size: 18px; font-weight: 800; }
+    header p { margin: 2px 0 0; font-size: 12px; color: #DBEAFE; }
+
+    .screen { display: none; padding: 12px; padding-bottom: 100px; max-width: 640px; margin: 0 auto; }
+    .screen.active { display: block; }
+
+    .card {
+      background: var(--card); border: 1px solid #D1D5DB;
+      border-radius: 10px; padding: 14px; margin-bottom: 14px;
+    }
+    .card-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 10px; flex-wrap: wrap; gap: 6px;
+    }
+    .card-title { font-size: 16px; font-weight: 800; margin: 0; color: #111827; }
+    .badge {
+      background: #D1FAE5; color: #065F46; font-size: 12px; font-weight: 800;
+      padding: 4px 8px; border-radius: 6px;
+    }
+
+    .section-label {
+      font-size: 13px; font-weight: 800; color: #374151;
+      margin: 10px 0 6px; display: block;
+    }
+
+    .btn-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+    .btn {
+      flex: 1; min-width: 22%; padding: 10px 6px; font-size: 13px; font-weight: 700;
+      border: 1.5px solid #9CA3AF; background: #F3F4F6; color: #1F2937;
+      border-radius: 8px; text-align: center; cursor: pointer;
+    }
+    .btn.active { background: #1D4ED8; color: #fff; border-color: #1E40AF; }
+    .btn-green.active { background: #0D5A34; color: #fff; border-color: #064E3B; }
+    .btn-danger { background: #FEE2E2; color: #B91C1C; border-color: #EF4444; flex: 0 0 auto; padding: 6px 12px; }
+
+    /* 見本比較プレビュー枠 */
+    .sample-stage-preview {
+      width: 100%; background: #374151; border-radius: 8px;
+      position: relative; overflow: hidden; margin-bottom: 10px;
+      border: 2px solid #9CA3AF;
+    }
+    .sample-stage-bg-label {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+      color: rgba(255,255,255,0.25); font-size: 18px; font-weight: 800; pointer-events: none;
+      text-align: center;
+    }
+
+    .field-item {
+      background: #F9FAFB; border: 1px solid #D1D5DB; border-radius: 8px;
+      padding: 10px; margin-bottom: 10px;
+    }
+    .field-item.hidden-field { opacity: 0.45; }
+    .field-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .input-row { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+    .input-row label { font-size: 13px; font-weight: 700; white-space: nowrap; min-width: 70px; }
+    input[type="text"], textarea {
+      width: 100%; padding: 9px 10px; font-size: 16px; border: 1px solid #9CA3AF;
+      border-radius: 6px; font-family: inherit; background: #fff; color: #111827;
+    }
+    textarea { min-height: 60px; resize: vertical; }
+
+    .bottom-fixed {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      background: #fff; border-top: 1px solid #D1D5DB; padding: 10px 16px;
+      padding-bottom: calc(10px + env(safe-area-inset-bottom));
+      z-index: 90; display: flex; gap: 10px; justify-content: center;
+    }
+    .primary-action-btn {
+      flex: 1; max-width: 400px; background: var(--accent); color: #fff;
+      border: none; padding: 15px 10px; font-size: 17px; font-weight: 900;
+      border-radius: 10px; cursor: pointer;
+    }
+    .secondary-action-btn {
+      background: #1D4ED8; color: #fff; border: none; padding: 15px 12px;
+      font-size: 14px; font-weight: 800; border-radius: 10px; cursor: pointer;
+    }
+
+    /* 画面2：カメラ画面 */
+    #cameraScreen.active {
+      padding: 0; max-width: 100%; background: #111827;
+      min-height: calc(100vh - 58px); display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .cam-top-bar { background: #fff; padding: 8px 10px; border-bottom: 1px solid #D1D5DB; }
+    .stage-container {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      padding: 8px; position: relative; overflow: hidden;
+    }
+    #cameraStage {
+      width: 100%; max-width: 600px;
+      background: #000; position: relative; overflow: hidden;
+      touch-action: none; box-shadow: 0 0 0 1px rgba(255,255,255,0.3);
+    }
+    #cameraVideo {
+      width: 100%; height: 100%; object-fit: cover; display: block;
+    }
+    #boardOverlay {
+      position: absolute; z-index: 20; cursor: move; user-select: none;
+    }
+    #boardCanvasPreview { width: 100%; height: 100%; display: block; }
+    .cam-bottom-bar {
+      background: #fff; padding: 12px 16px;
+      padding-bottom: calc(12px + env(safe-area-inset-bottom));
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .shutter-btn {
+      width: 76px; height: 76px; border-radius: 38px;
+      border: 4px solid var(--accent); background: #FFF7ED;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+    }
+    .shutter-inner {
+      width: 60px; height: 60px; border-radius: 30px; background: var(--accent);
+      color: #fff; font-weight: 900; font-size: 16px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* 画面3：結果画面 */
+    .result-img-box {
+      background: #111827; padding: 8px; border-radius: 10px; text-align: center; margin-bottom: 12px;
+    }
+    #resultImage { max-width: 100%; max-height: 420px; border-radius: 2px; display: block; margin: 0 auto; }
+    .save-btn-main {
+      width: 100%; background: var(--success); color: #fff; border: none;
+      padding: 17px; font-size: 18px; font-weight: 900; border-radius: 10px;
+      margin-bottom: 8px; cursor: pointer;
+    }
+    .save-btn-sub {
+      width: 100%; background: #EFF6FF; color: #1E40AF; border: 2px solid #2563EB;
+      padding: 14px; font-size: 16px; font-weight: 800; border-radius: 10px;
+      margin-bottom: 14px; cursor: pointer; display: block; text-align: center; text-decoration: none;
+    }
+    .help-box {
+      background: #FEF3C7; border: 1px solid #F59E0B; color: #92400E;
+      padding: 10px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1 id="headerTitle">1. デジタル工事黒板の編集</h1>
+    <p id="headerSub">添付見本と同じサイズ比率（幅1/3×高さ1/3＝面積1/9）・レイアウトに対応</p>
+  </header>
+
+  <!-- 隠しファイル入力（標準カメラ起動 / 写真選択合成用フォールバック） -->
+  <input type="file" id="fallbackFileInput" accept="image/*" capture="environment" style="display:none;" onchange="handleFileSelected(event)" />
+  <input type="file" id="albumFileInput" accept="image/*" style="display:none;" onchange="handleFileSelected(event)" />
+
+  <!-- ==================== 画面1：黒板編集 ==================== -->
+  <div id="editScreen" class="screen active">
+
+    <!-- 写真全体に対する黒板サイズ・配置の見本プレビュー -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">写真に対する黒板サイズ・配置プレビュー</h2>
+        <span id="areaBadge" class="badge">幅33.3% × 高33.3% (面積1/9 = 11.1%)</span>
+      </div>
+
+      <!-- 写真枠シミュレーター -->
+      <div id="samplePhotoFrame" class="sample-stage-preview" style="aspect-ratio: 4 / 3;">
+        <div class="sample-stage-bg-label">
+          撮影写真の全体枠イメージ<br>(黒板の大きさと位置の実寸比率)
+        </div>
+        <div id="sampleBoardHolder" style="position:absolute;">
+          <canvas id="editPreviewCanvas" style="width:100%; height:100%; display:block;"></canvas>
+        </div>
+      </div>
+
+      <span class="section-label">撮影写真の向き（アスペクト比）</span>
+      <div class="btn-row">
+        <button class="btn" id="orient_landscape" onclick="setPhotoOrientation('landscape')">横向き 4:3（添付見本と同じ）</button>
+        <button class="btn" id="orient_portrait" onclick="setPhotoOrientation('portrait')">縦向き 3:4</button>
+      </div>
+
+      <span class="section-label">黒板レイアウト（デザイン）</span>
+      <div class="btn-row">
+        <button class="btn btn-green" id="style_sample" onclick="setLayoutStyle('sample')">見本スタイル（上段項目＋中央欄＋下部社名/日付）</button>
+        <button class="btn btn-green" id="style_table" onclick="setLayoutStyle('table')">全項目テーブル</button>
+      </div>
+
+      <span class="section-label">黒板の色テーマ</span>
+      <div class="btn-row">
+        <button class="btn" id="theme_green" onclick="setTheme('green')">見本グリーン</button>
+        <button class="btn" id="theme_darkgreen" onclick="setTheme('darkgreen')">濃緑＋木枠</button>
+        <button class="btn" id="theme_white" onclick="setTheme('white')">ホワイトボード</button>
+      </div>
+
+      <span class="section-label">黒板のサイズ（標準 ＝ 幅1/3 × 高さ1/3 ＝ 面積1/9）</span>
+      <div class="btn-row">
+        <button class="btn" onclick="changeScale(-0.15)">－ 縮小</button>
+        <button class="btn" id="scaleResetBtn" onclick="changeScale(0)">標準サイズ (面積1/9)</button>
+        <button class="btn" onclick="changeScale(0.15)">＋ 拡大</button>
+      </div>
+
+      <span class="section-label">四隅への配置 ＆ 端の余白設定</span>
+      <div class="btn-row">
+        <button class="btn" id="corner_top-left" onclick="setCorner('top-left')">↖ 左上</button>
+        <button class="btn" id="corner_top-right" onclick="setCorner('top-right')">↗ 右上</button>
+        <button class="btn" id="corner_bottom-left" onclick="setCorner('bottom-left')">↙ 左下(見本)</button>
+        <button class="btn" id="corner_bottom-right" onclick="setCorner('bottom-right')">↘ 右下</button>
+      </div>
+      <div class="btn-row">
+        <button class="btn" id="margin_flush" onclick="setEdgeMargin(0)">端にピタッと配置（見本通り・余白0）</button>
+        <button class="btn" id="margin_spaced" onclick="setEdgeMargin(0.025)">少し内側に配置（余白あり）</button>
+      </div>
+    </div>
+
+    <!-- 黒板の入力項目カード -->
+    <div class="card">
+      <div class="card-header">
+        <h2 class="card-title">黒板の入力内容</h2>
+        <div style="display:flex; gap:6px;">
+          <button class="btn" style="flex:0 0 auto; padding:6px 10px; font-size:12px;" onclick="resetToSampleValues()">見本初期値に戻す</button>
+          <button class="btn btn-danger" onclick="clearAllFields()">すべてクリア</button>
+        </div>
+      </div>
+
+      <!-- 上段テーブル項目リスト -->
+      <span class="section-label" style="margin-top:0;">① 上段の項目行（項目名の変更・追加・削除が可能）</span>
+      <div id="fieldsContainer"></div>
+      <button class="btn" style="width:100%; border-style:dashed; border-color:#2563EB; color:#1D4ED8; padding:11px; margin-bottom:14px;" onclick="addField()">
+        ＋ 上段の項目行を追加する（工種など）
+      </button>
+
+      <!-- 中段フリースペース入力 -->
+      <span class="section-label">② 中央フリースペース（施工内容・備考・複数行テキスト）</span>
+      <div class="field-item">
+        <div style="font-size:12px; color:#4B5563; margin-bottom:6px;">
+          ※空欄にすると、添付見本のように中央がすっきりした緑の空間になります。文字を入れると中央エリアに表示されます。
+        </div>
+        <textarea id="freeNoteInput" oninput="updateFooterAndNote()" placeholder="（任意）施工内容や備考、立会者名などを複数行で入力できます"></textarea>
+      </div>
+
+      <!-- 最下段（施工会社・撮影日） -->
+      <span class="section-label">③ 最下段フッター（左：施工会社 ／ 右：撮影日）</span>
+      <div class="field-item">
+        <div class="input-row">
+          <label>施工会社：</label>
+          <input type="text" id="companyInput" oninput="updateFooterAndNote()" placeholder="例：○×設備工業株式会社" />
+        </div>
+        <div class="input-row" style="margin-bottom:0;">
+          <label>撮影日：</label>
+          <input type="text" id="dateInput" oninput="updateFooterAndNote()" placeholder="例：2026/10/07" />
+          <button class="btn" style="flex:0 0 auto; padding:8px 10px; font-size:12px;" onclick="setTodayDate()">今日</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 下部固定アクションバー -->
+    <div class="bottom-fixed">
+      <button class="primary-action-btn" onclick="goToCamera()">📷 カメラ画面へ進む ▶</button>
+      <button class="secondary-action-btn" onclick="document.getElementById('albumFileInput').click()">📁 写真選択</button>
+    </div>
+  </div>
+
+  <!-- ==================== 画面2：カメラ撮影 ==================== -->
+  <div id="cameraScreen" class="screen">
+    <div class="cam-top-bar">
+      <div class="btn-row" style="margin-bottom:6px;">
+        <button class="btn" onclick="setCorner('top-left')">↖ 左上</button>
+        <button class="btn" onclick="setCorner('top-right')">↗ 右上</button>
+        <button class="btn" onclick="setCorner('bottom-left')">↙ 左下(見本)</button>
+        <button class="btn" onclick="setCorner('bottom-right')">↘ 右下</button>
+        <button class="btn" onclick="togglePhotoOrientation()">🔄 縦/横切替</button>
+      </div>
+      <div class="btn-row" style="margin-bottom:0;">
+        <button class="btn" onclick="changeScale(-0.15)">－ 縮小</button>
+        <button class="btn" onclick="changeScale(0)">標準(1/9)</button>
+        <button class="btn" onclick="changeScale(0.15)">＋ 拡大</button>
+        <button class="btn" style="background:#EFF6FF; color:#1E40AF; border-color:#2563EB;" onclick="document.getElementById('fallbackFileInput').click()">標準カメラ起動</button>
+      </div>
+    </div>
+
+    <div class="stage-container">
+      <div id="cameraStage" style="aspect-ratio: 4 / 3;">
+        <video id="cameraVideo" autoplay playsinline muted></video>
+        <div id="boardOverlay">
+          <canvas id="boardCanvasPreview"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <div style="color:#E5E7EB; text-align:center; font-size:12px; padding:4px 8px;">
+      💡 黒板は指でドラッグして移動できます（画面外へはみ出しません）
+    </div>
+
+    <div class="cam-bottom-bar">
+      <button class="btn" style="flex:0 0 110px; padding:14px; font-size:14px;" onclick="backToEdit()">◀ 黒板編集</button>
+      <div class="shutter-btn" onclick="captureFromVideo()">
+        <div class="shutter-inner">撮影</div>
+      </div>
+      <button class="btn" style="flex:0 0 110px; padding:14px; font-size:13px;" onclick="document.getElementById('albumFileInput').click()">写真から合成</button>
+    </div>
+  </div>
+
+  <!-- ==================== 画面3：撮影結果確認・保存 ==================== -->
+  <div id="resultScreen" class="screen">
+    <div class="result-img-box">
+      <img id="resultImage" alt="黒板合成後の工事写真" />
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span style="font-weight:800; font-size:15px;">JPEG圧縮後のファイルサイズ：</span>
+        <span id="resultSizeText" style="font-size:21px; font-weight:900; color:#059669;">-- KB</span>
+      </div>
+      <div id="resultSpecText" style="font-size:13px; color:#374151; font-weight:600; margin-bottom:4px;"></div>
+      <div id="resultFileNameText" style="font-size:12px; color:#1D4ED8; font-weight:700; margin-bottom:4px;"></div>
+      <div style="font-size:12px; color:#6B7280;">目標サイズ: 250KB 〜 350KB（中心300KB / 黒板文字の判読性優先）</div>
+    </div>
+
+    <button class="save-btn-main" onclick="shareOrSaveImage()">
+      📷 写真アプリ / 📁 ファイルアプリへ保存する
+    </button>
+
+    <div class="help-box">
+      <strong>【iPhoneでの保存方法】</strong><br>
+      上の緑色のボタンを押すとiPhoneの共有メニューが開きます。<br>
+      ・写真アプリへ入れる場合 👉 <strong>「画像を保存」</strong>をタップ<br>
+      ・ファイルアプリへ入れる場合 👉 <strong>「"ファイル"に保存」</strong>をタップ
+    </div>
+
+    <a id="directDownloadLink" class="save-btn-sub" download="COMPOUND_photo.jpg">
+      ⬇ 直接JPEGファイルをダウンロード (.jpg)
+    </a>
+
+    <div class="btn-row">
+      <button class="btn" style="padding:15px; font-size:15px;" onclick="goToCamera()">🔄 保存せず撮り直す</button>
+      <button class="btn active" style="padding:15px; font-size:15px;" onclick="backToEdit()">📝 黒板を編集して次を撮影</button>
+    </div>
+  </div>
+
+  <script>
+    const STORAGE_KEY = 'koji_blackboard_sample_pwa_v2';
+    let mediaStream = null;
+    let currentBlob = null;
+    let currentFileName = 'COMPOUND_photo.jpg';
+
+    function getTodayStr() {
+      const d = new Date();
+      return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`;
+    }
+
+    // 添付見本画像を忠実に再現した初期設定
+    function getSampleDefaultState() {
+      return {
+        photoOrientation: 'landscape', // 'landscape' (4:3横・見本通り) or 'portrait' (3:4縦)
+        layoutStyle: 'sample',         // 'sample' (見本スタイル) or 'table' (全項目表)
+        theme: 'green',                // 'green' (見本グリーン #0D5A34), 'darkgreen', 'white'
+        areaScale: 1.0,                // 1.0 = 幅1/3 × 高さ1/3 = 面積1/9 (11.1%)
+        edgeMargin: 0,                 // 0 = 見本通り左下隅にピタッと接地
+        xRatio: 0,
+        yRatio: 2 / 3,                 // 左下 (1 - 1/3)
+        corner: 'bottom-left',
+        fields: [
+          { id: 'f_name', label: '工事名', value: 'マンション改修工事', visible: true },
+          { id: 'f_place', label: '工事場所', value: '', visible: true },
+          { id: 'f_code', label: '要素', value: 'B-000-UVWXYZ', visible: true },
+          { id: 'f_type', label: '工種', value: '給排水設備工事', visible: false }
+        ],
+        freeNote: '',                  // 中央フリースペース（見本では空欄）
+        company: '○×設備工業株式会社', // 左下
+        date: '2026/10/07'             // 右下
+      };
+    }
+
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return getSampleDefaultState();
+        const parsed = JSON.parse(raw);
+        return Object.assign({}, getSampleDefaultState(), parsed);
+      } catch (e) {
+        return getSampleDefaultState();
+      }
+    }
+
+    function saveState() {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch (e) {}
+      updateUIAndPreviews();
+    }
+
+    function resetToSampleValues() {
+      if (!confirm('黒板の入力内容・配置を添付見本画像の初期状態に戻しますか？')) return;
+      state = getSampleDefaultState();
+      renderFieldsEditor();
+      syncFooterInputs();
+      saveState();
+    }
+
+    // 写真全体に対する黒板の幅比率・高さ比率を計算（標準時は w=1/3, h=1/3, 面積=1/9）
+    function getBoardRatios() {
+      const scale = Math.max(0.6, Math.min(1.8, state.areaScale));
+      const linear = Math.sqrt(scale);
+      const wRatio = Math.min(0.85, (1 / 3) * linear);
+      const hRatio = Math.min(0.85, (1 / 3) * linear);
+      const areaPct = Math.round(wRatio * hRatio * 1000) / 10;
+      return { wRatio, hRatio, areaPct };
+    }
+
+    /**
+     * 見本画像のデジタル工事黒板をCanvasへ高精細描画するコア関数
+     */
+    function drawBlackboardToCanvas(ctx, width, height) {
+      ctx.save();
+      ctx.clearRect(0, 0, width, height);
+
+      let bgColor = '#0D5A34'; // 添付見本のグリーン
+      let lineColor = '#FFFFFF';
+      let textColor = '#FFFFFF';
+      let outerBorderColor = null;
+
+      if (state.theme === 'darkgreen') {
+        bgColor = '#123B22';
+        outerBorderColor = '#7C4A21';
+      } else if (state.theme === 'white') {
+        bgColor = '#FFFFFF';
+        lineColor = '#111827';
+        textColor = '#111827';
+      }
+
+      // 1. 背景の塗りつぶし
+      ctx.fillStyle = bgColor;
+      ctx.fillRect(0, 0, width, height);
+
+      if (outerBorderColor) {
+        const woodPad = Math.max(3, Math.round(Math.min(width, height) * 0.02));
+        ctx.lineWidth = woodPad;
+        ctx.strokeStyle = outerBorderColor;
+        ctx.strokeRect(woodPad / 2, woodPad / 2, width - woodPad, height - woodPad);
+      }
+
+      // 2. 見本通り、外周にわずかな緑マージンを残して白い内枠線を引く
+      const margin = Math.max(4, Math.round(Math.min(width, height) * 0.022));
+      const boxX = margin;
+      const boxY = margin;
+      const boxW = width - margin * 2;
+      const boxH = height - margin * 2;
+
+      const strokeW = Math.max(1.5, Math.round(Math.min(width, height) * 0.0065));
+      ctx.strokeStyle = lineColor;
+      ctx.lineWidth = strokeW;
+      ctx.strokeRect(boxX, boxY, boxW, boxH);
+
+      const visibleFields = state.fields.filter(f => f.visible);
+
+      if (state.layoutStyle === 'sample') {
+        // ========== 見本スタイル（上段テーブル ＋ 中央フリー空間 ＋ 下部左右に会社名・日付） ==========
+        const rowCount = visibleFields.length;
+        // 見本では上段3行が黒板高さの約42%を占め、残りがフリー空間＋フッター
+        const singleRowH = Math.min(
+          Math.round(boxH * 0.142),
+          Math.round((boxH * 0.62) / Math.max(rowCount, 1))
+        );
+        const labelColW = Math.round(boxW * 0.215); // 見本の左列比率（約21.5%）
+
+        let curY = boxY;
+        ctx.fillStyle = textColor;
+        ctx.textBaseline = 'middle';
+
+        visibleFields.forEach((field) => {
+          // 下罫線
+          ctx.beginPath();
+          ctx.lineWidth = strokeW;
+          ctx.moveTo(boxX, curY + singleRowH);
+          ctx.lineTo(boxX + boxW, curY + singleRowH);
+          ctx.stroke();
+
+          // 項目名と値の縦仕切り線
+          ctx.beginPath();
+          ctx.moveTo(boxX + labelColW, curY);
+          ctx.lineTo(boxX + labelColW, curY + singleRowH);
+          ctx.stroke();
+
+          // 項目名（3文字以下なら大きめ、4文字以上ならセル幅に合わせて自動縮小）
+          const labelLen = Math.max(1, field.label.length);
+          const maxLabelFont = Math.round(singleRowH * 0.54);
+          const fitLabelFont = Math.floor((labelColW * 0.84) / labelLen);
+          const labelFontSize = Math.max(9, Math.min(maxLabelFont, fitLabelFont));
+
+          ctx.font = `bold ${labelFontSize}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText(field.label, boxX + labelColW / 2, curY + singleRowH / 2, labelColW - 6);
+
+          // 入力値（左寄せ、見本と同じ力強いゴシック）
+          const valFontSize = Math.max(10, Math.round(singleRowH * 0.54));
+          ctx.font = `bold ${valFontSize}px sans-serif`;
+          ctx.textAlign = 'left';
+          const valPadLeft = Math.max(6, Math.round(boxW * 0.022));
+          const maxValWidth = boxW - labelColW - valPadLeft * 2;
+          ctx.fillText(field.value || '', boxX + labelColW + valPadLeft, curY + singleRowH / 2, maxValWidth);
+
+          curY += singleRowH;
+        });
+
+        // 最下段フッター（左下：施工会社、右下：撮影日）
+        const footerFontSize = Math.max(9, Math.round(boxH * 0.056));
+        const footerBottomY = boxY + boxH - Math.max(4, Math.round(boxH * 0.022));
+        const sidePad = Math.max(6, Math.round(boxW * 0.02));
+
+        ctx.font = `bold ${footerFontSize}px sans-serif`;
+        ctx.textBaseline = 'bottom';
+
+        if (state.company) {
+          ctx.textAlign = 'left';
+          ctx.fillText(state.company, boxX + sidePad, footerBottomY, boxW * 0.62);
+        }
+        if (state.date) {
+          ctx.textAlign = 'right';
+          ctx.fillText(state.date, boxX + boxW - sidePad, footerBottomY, boxW * 0.36);
+        }
+
+        // 中央フリースペースの複数行テキスト描画（入力されている場合のみ）
+        if (state.freeNote && state.freeNote.trim().length > 0) {
+          const freeTopY = curY + Math.max(6, Math.round(boxH * 0.03));
+          const freeBottomY = footerBottomY - footerFontSize - Math.max(6, Math.round(boxH * 0.03));
+          const freeAvailH = Math.max(20, freeBottomY - freeTopY);
+          const freeMaxW = boxW - sidePad * 2;
+
+          const noteFontSize = Math.max(10, Math.round(boxH * 0.068));
+          ctx.font = `bold ${noteFontSize}px sans-serif`;
+          ctx.textAlign = 'left';
+          ctx.textBaseline = 'top';
+
+          const wrapped = wrapTextLines(ctx, state.freeNote, freeMaxW);
+          const lineStep = Math.round(noteFontSize * 1.3);
+          const maxLines = Math.max(1, Math.floor(freeAvailH / lineStep));
+
+          wrapped.slice(0, maxLines).forEach((line, idx) => {
+            ctx.fillText(line, boxX + sidePad, freeTopY + idx * lineStep, freeMaxW);
+          });
+        }
+      } else {
+        // ========== 全項目均等テーブルスタイル ==========
+        const allRows = [...visibleFields];
+        if (state.freeNote && state.freeNote.trim()) {
+          allRows.push({ label: '施工内容・備考', value: state.freeNote });
+        }
+        if (state.date) allRows.push({ label: '撮影日', value: state.date });
+        if (state.company) allRows.push({ label: '施工会社', value: state.company });
+
+        if (allRows.length === 0) { ctx.restore(); return; }
+
+        const rowH = boxH / allRows.length;
+        const labelColW = Math.round(boxW * 0.26);
+        const fontSize = Math.max(9, Math.min(Math.round(rowH * 0.46), Math.round(boxW * 0.052)));
+
+        ctx.fillStyle = textColor;
+        ctx.textBaseline = 'middle';
+
+        allRows.forEach((r, i) => {
+          const ry = boxY + i * rowH;
+          if (i < allRows.length - 1) {
+            ctx.beginPath();
+            ctx.moveTo(boxX, ry + rowH);
+            ctx.lineTo(boxX + boxW, ry + rowH);
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          ctx.moveTo(boxX + labelColW, ry);
+          ctx.lineTo(boxX + labelColW, ry + rowH);
+          ctx.stroke();
+
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.fillText(r.label, boxX + labelColW / 2, ry + rowH / 2, labelColW - 6);
+
+          ctx.textAlign = 'left';
+          const singleLineVal = String(r.value || '').replace(/\n+/g, ' ');
+          ctx.fillText(singleLineVal, boxX + labelColW + 6, ry + rowH / 2, boxW - labelColW - 12);
+        });
+      }
+
+      ctx.restore();
+    }
+
+    function wrapTextLines(ctx, text, maxWidth) {
+      const rawLines = String(text || '').split('\n');
+      const result = [];
+      rawLines.forEach(line => {
+        let current = '';
+        for (const ch of line) {
+          if (ctx.measureText(current + ch).width > maxWidth && current.length > 0) {
+            result.push(current);
+            current = ch;
+          } else {
+            current += ch;
+          }
+        }
+        result.push(current);
+      });
+      return result;
+    }
+
+    function renderFieldsEditor() {
+      const container = document.getElementById('fieldsContainer');
+      container.innerHTML = '';
+      state.fields.forEach((f, idx) => {
+        const div = document.createElement('div');
+        div.className = 'field-item' + (f.visible ? '' : ' hidden-field');
+        div.innerHTML = `
+          <div class="field-top">
+            <button class="btn ${f.visible ? 'active' : ''}" style="flex:0 0 auto; padding:5px 10px; font-size:12px;" onclick="toggleFieldVisible('${f.id}')">
+              ${f.visible ? '✓ 黒板に表示中' : '非表示'}
+            </button>
+            <span style="font-size:12px; color:#6B7280; font-weight:700;">上段 #${idx + 1}</span>
+            <button class="btn btn-danger" style="font-size:12px;" onclick="deleteField('${f.id}')">削除</button>
+          </div>
+          <div class="input-row">
+            <label>項目名：</label>
+            <input type="text" value="${escapeHtml(f.label)}" oninput="onFieldInput('${f.id}', 'label', this.value)" />
+          </div>
+          <div class="input-row" style="margin-bottom:0;">
+            <label>入力内容：</label>
+            <input type="text" value="${escapeHtml(f.value)}" placeholder="空欄のままでも撮影できます" oninput="onFieldInput('${f.id}', 'value', this.value)" />
+          </div>
+        `;
+        container.appendChild(div);
+      });
+    }
+
+    function syncFooterInputs() {
+      document.getElementById('freeNoteInput').value = state.freeNote || '';
+      document.getElementById('companyInput').value = state.company || '';
+      document.getElementById('dateInput').value = state.date || '';
+    }
+
+    function escapeHtml(str) {
+      return String(str || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function onFieldInput(id, key, val) {
+      const target = state.fields.find(f => f.id === id);
+      if (target) { target[key] = val; saveState(); }
+    }
+    function toggleFieldVisible(id) {
+      const target = state.fields.find(f => f.id === id);
+      if (target) { target.visible = !target.visible; renderFieldsEditor(); saveState(); }
+    }
+    function addField() {
+      state.fields.push({ id: 'f_' + Date.now(), label: '追加項目', value: '', visible: true });
+      renderFieldsEditor(); saveState();
+    }
+    function deleteField(id) {
+      if (state.fields.length <= 1) { alert('最低1つの項目が必要です。'); return; }
+      state.fields = state.fields.filter(f => f.id !== id);
+      renderFieldsEditor(); saveState();
+    }
+    function updateFooterAndNote() {
+      state.freeNote = document.getElementById('freeNoteInput').value;
+      state.company = document.getElementById('companyInput').value;
+      state.date = document.getElementById('dateInput').value;
+      saveState();
+    }
+    function setTodayDate() {
+      state.date = getTodayStr();
+      syncFooterInputs();
+      saveState();
+    }
+    function clearAllFields() {
+      if (!confirm('すべての入力内容を空欄にしますか？（撮影日は今日の日付にセットされます）')) return;
+      state.fields.forEach(f => { f.value = ''; });
+      state.freeNote = '';
+      state.date = getTodayStr();
+      renderFieldsEditor();
+      syncFooterInputs();
+      saveState();
+    }
+
+    function setPhotoOrientation(orient) {
+      state.photoOrientation = orient;
+      setCorner(state.corner);
+    }
+    function togglePhotoOrientation() {
+      setPhotoOrientation(state.photoOrientation === 'landscape' ? 'portrait' : 'landscape');
+    }
+    function setLayoutStyle(style) { state.layoutStyle = style; saveState(); }
+    function setTheme(theme) { state.theme = theme; saveState(); }
+    function setEdgeMargin(m) {
+      state.edgeMargin = m;
+      setCorner(state.corner === 'custom' ? 'bottom-left' : state.corner);
+    }
+    function changeScale(delta) {
+      state.areaScale = delta === 0 ? 1.0 : Math.max(0.6, Math.min(1.8, Math.round((state.areaScale + delta) * 100) / 100));
+      setCorner(state.corner);
+    }
+
+    function setCorner(corner) {
+      const { wRatio, hRatio } = getBoardRatios();
+      const m = state.edgeMargin || 0;
+      state.corner = corner;
+      if (corner === 'top-left') { state.xRatio = m; state.yRatio = m; }
+      else if (corner === 'top-right') { state.xRatio = 1 - wRatio - m; state.yRatio = m; }
+      else if (corner === 'bottom-left') { state.xRatio = m; state.yRatio = 1 - hRatio - m; }
+      else if (corner === 'bottom-right') { state.xRatio = 1 - wRatio - m; state.yRatio = 1 - hRatio - m; }
+      else {
+        state.xRatio = Math.max(0, Math.min(1 - wRatio, state.xRatio));
+        state.yRatio = Math.max(0, Math.min(1 - hRatio, state.yRatio));
+      }
+      saveState();
+    }
+
+    function updateUIAndPreviews() {
+      const { wRatio, hRatio, areaPct } = getBoardRatios();
+      const wPct = Math.round(wRatio * 1000) / 10;
+      const hPct = Math.round(hRatio * 1000) / 10;
+      document.getElementById('areaBadge').textContent =
+        `幅${wPct}% × 高${hPct}% (面積比: ${areaPct}% ${Math.abs(state.areaScale - 1.0) < 0.05 ? '= 1/9' : ''})`;
+
+      // ボタン選択状態の反映
+      document.getElementById('orient_landscape').className = 'btn ' + (state.photoOrientation === 'landscape' ? 'active' : '');
+      document.getElementById('orient_portrait').className = 'btn ' + (state.photoOrientation === 'portrait' ? 'active' : '');
+      document.getElementById('style_sample').className = 'btn btn-green ' + (state.layoutStyle === 'sample' ? 'active' : '');
+      document.getElementById('style_table').className = 'btn btn-green ' + (state.layoutStyle === 'table' ? 'active' : '');
+      document.getElementById('theme_green').className = 'btn ' + (state.theme === 'green' ? 'active' : '');
+      document.getElementById('theme_darkgreen').className = 'btn ' + (state.theme === 'darkgreen' ? 'active' : '');
+      document.getElementById('theme_white').className = 'btn ' + (state.theme === 'white' ? 'active' : '');
+      document.getElementById('scaleResetBtn').className = 'btn ' + (Math.abs(state.areaScale - 1.0) < 0.05 ? 'active' : '');
+      document.getElementById('margin_flush').className = 'btn ' + (state.edgeMargin === 0 ? 'active' : '');
+      document.getElementById('margin_spaced').className = 'btn ' + (state.edgeMargin > 0 ? 'active' : '');
+
+      ['top-left', 'top-right', 'bottom-left', 'bottom-right'].forEach(c => {
+        const el = document.getElementById('corner_' + c);
+        if (el) el.className = 'btn ' + (state.corner === c ? 'active' : '');
+      });
+
+      const aspectCss = state.photoOrientation === 'landscape' ? '4 / 3' : '3 / 4';
+
+      // 1. 編集画面の写真枠シミュレーター更新
+      const sampleFrame = document.getElementById('samplePhotoFrame');
+      const sampleHolder = document.getElementById('sampleBoardHolder');
+      const editCanvas = document.getElementById('editPreviewCanvas');
+      sampleFrame.style.aspectRatio = aspectCss;
+
+      const clampedX = Math.max(0, Math.min(1 - wRatio, state.xRatio));
+      const clampedY = Math.max(0, Math.min(1 - hRatio, state.yRatio));
+
+      sampleHolder.style.width = (wRatio * 100) + '%';
+      sampleHolder.style.height = (hRatio * 100) + '%';
+      sampleHolder.style.left = (clampedX * 100) + '%';
+      sampleHolder.style.top = (clampedY * 100) + '%';
+
+      const baseCanvasW = state.photoOrientation === 'landscape' ? 440 : 330;
+      const baseCanvasH = state.photoOrientation === 'landscape' ? 330 : 440;
+      editCanvas.width = baseCanvasW;
+      editCanvas.height = baseCanvasH;
+      drawBlackboardToCanvas(editCanvas.getContext('2d'), baseCanvasW, baseCanvasH);
+
+      // 2. カメラ画面のオーバーレイ更新
+      const camStage = document.getElementById('cameraStage');
+      const overlay = document.getElementById('boardOverlay');
+      const camCanvas = document.getElementById('boardCanvasPreview');
+      if (camStage && overlay) {
+        camStage.style.aspectRatio = aspectCss;
+        if (camStage.clientWidth > 0) {
+          const sw = camStage.clientWidth;
+          const sh = camStage.clientHeight;
+          const bw = Math.round(sw * wRatio);
+          const bh = Math.round(sh * hRatio);
+          const bx = Math.round(sw * clampedX);
+          const by = Math.round(sh * clampedY);
+          overlay.style.width = bw + 'px';
+          overlay.style.height = bh + 'px';
+          overlay.style.left = bx + 'px';
+          overlay.style.top = by + 'px';
+          camCanvas.width = Math.max(240, bw * 2);
+          camCanvas.height = Math.max(180, bh * 2);
+          drawBlackboardToCanvas(camCanvas.getContext('2d'), camCanvas.width, camCanvas.height);
+        }
+      }
+    }
+
+    // カメラ画面および編集プレビューでの黒板ドラッグ移動
+    function attachDragBehavior(targetEl, containerEl) {
+      let dragging = false, startX = 0, startY = 0, origX = 0, origY = 0;
+      targetEl.addEventListener('pointerdown', e => {
+        dragging = true;
+        startX = e.clientX; startY = e.clientY;
+        origX = state.xRatio; origY = state.yRatio;
+        targetEl.setPointerCapture(e.pointerId);
+      });
+      targetEl.addEventListener('pointermove', e => {
+        if (!dragging || containerEl.clientWidth === 0) return;
+        const { wRatio, hRatio } = getBoardRatios();
+        const dx = (e.clientX - startX) / containerEl.clientWidth;
+        const dy = (e.clientY - startY) / containerEl.clientHeight;
+        state.xRatio = Math.max(0, Math.min(1 - wRatio, origX + dx));
+        state.yRatio = Math.max(0, Math.min(1 - hRatio, origY + dy));
+        state.corner = 'custom';
+        saveState();
+      });
+      targetEl.addEventListener('pointerup', () => { dragging = false; });
+    }
+
+    attachDragBehavior(document.getElementById('boardOverlay'), document.getElementById('cameraStage'));
+    attachDragBehavior(document.getElementById('sampleBoardHolder'), document.getElementById('samplePhotoFrame'));
+    window.addEventListener('resize', updateUIAndPreviews);
+
+    async function goToCamera() {
+      showScreen('cameraScreen', '2. カメラ撮影（黒板オーバーレイ）', '黒板をドラッグして位置を調整し、撮影ボタンを押してください');
+      try {
+        if (!mediaStream && navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: { ideal: 'environment' },
+              width: { ideal: 1920 },
+              height: { ideal: 1440 }
+            },
+            audio: false
+          });
+          document.getElementById('cameraVideo').srcObject = mediaStream;
+        }
+        setTimeout(updateUIAndPreviews, 120);
+      } catch (err) {
+        alert('ライブカメラプレビューを起動できませんでした（HTTPS接続でないかカメラ権限がオフの可能性があります）。\n右上の「標準カメラ起動」または「写真から合成」ボタンから撮影・合成できます。');
+      }
+    }
+
+    function backToEdit() {
+      showScreen('editScreen', '1. デジタル工事黒板の編集', '添付見本と同じサイズ比率（幅1/3×高さ1/3＝面積1/9）・レイアウトに対応');
+      setTimeout(updateUIAndPreviews, 60);
+    }
+
+    function showScreen(id, title, sub) {
+      ['editScreen', 'cameraScreen', 'resultScreen'].forEach(s => {
+        document.getElementById(s).classList.toggle('active', s === id);
+      });
+      document.getElementById('headerTitle').textContent = title;
+      document.getElementById('headerSub').textContent = sub;
+      window.scrollTo(0, 0);
+    }
+
+    function canvasToJpegBlob(canvas, quality) {
+      return new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/jpeg', quality));
+    }
+
+    // 要素コード等から保存ファイル名を生成（見本 COMPOUND_B-000-UVWXYZ_01.jpg 形式）
+    function buildOutputFileName() {
+      const codeField = state.fields.find(f => f.label.includes('要素') || f.id === 'f_code');
+      const rawCode = (codeField && codeField.value ? codeField.value.trim() : '').replace(/[^a-zA-Z0-9_-]/g, '');
+      if (rawCode) {
+        return `COMPOUND_${rawCode}_01.jpg`;
+      }
+      return `COMPOUND_${Date.now()}.jpg`;
+    }
+
+    // ライブカメラ映像から撮影して黒板合成＋300KB圧縮
+    async function captureFromVideo() {
+      const video = document.getElementById('cameraVideo');
+      if (!video || !video.videoWidth) {
+        // ライブ映像が無い場合はiPhone標準カメラを起動
+        document.getElementById('fallbackFileInput').click();
+        return;
+      }
+      await compositeAndCompressSource(video, video.videoWidth, video.videoHeight);
+    }
+
+    // 標準カメラまたはアルバムから選択された画像ファイルに黒板を合成＋300KB圧縮
+    function handleFileSelected(event) {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const img = new Image();
+      img.onload = async () => {
+        // 写真の縦横に合わせて向きを自動判定
+        if (img.naturalWidth >= img.naturalHeight) {
+          state.photoOrientation = 'landscape';
+        } else {
+          state.photoOrientation = 'portrait';
+        }
+        await compositeAndCompressSource(img, img.naturalWidth, img.naturalHeight);
+        URL.revokeObjectURL(img.src);
+      };
+      img.src = URL.createObjectURL(file);
+      event.target.value = '';
+    }
+
+    /**
+     * 元画像（VideoまたはImage）とデジタル黒板を合成し、
+     * 250KB〜350KB（中心300KB）を目標に段階的JPEG圧縮を行う関数
+     */
+    async function compositeAndCompressSource(sourceEl, srcW, srcH) {
+      const isLandscape = state.photoOrientation === 'landscape';
+      const targetAspect = isLandscape ? (4 / 3) : (3 / 4);
+      const { wRatio, hRatio } = getBoardRatios();
+      const clampedX = Math.max(0, Math.min(1 - wRatio, state.xRatio));
+      const clampedY = Math.max(0, Math.min(1 - hRatio, state.yRatio));
+
+      // 段階的長辺ピクセル候補（まずは高精細1600〜2048pxから開始）
+      const longEdges = [1800, 1440, 1280, 1024];
+      let finalBlob = null, finalW = 0, finalH = 0, usedQ = 0.80;
+
+      for (const longEdge of longEdges) {
+        const outW = isLandscape ? longEdge : Math.round((longEdge * 3) / 4);
+        const outH = isLandscape ? Math.round((longEdge * 3) / 4) : longEdge;
+
+        const workCanvas = document.createElement('canvas');
+        workCanvas.width = outW;
+        workCanvas.height = outH;
+        const ctx = workCanvas.getContext('2d');
+
+        // 1. 元画像をターゲット比率（4:3 または 3:4）で中央クロップ描画
+        const srcAspect = srcW / srcH;
+        let sx = 0, sy = 0, sw = srcW, sh = srcH;
+        if (srcAspect > targetAspect) {
+          sw = Math.round(srcH * targetAspect);
+          sx = Math.round((srcW - sw) / 2);
+        } else {
+          sh = Math.round(srcW / targetAspect);
+          sy = Math.round((srcH - sh) / 2);
+        }
+        ctx.drawImage(sourceEl, sx, sy, sw, sh, 0, 0, outW, outH);
+
+        // 2. 黒板を同じ比率（標準時は幅1/3×高1/3＝面積1/9）で焼き込み合成
+        const bw = Math.round(outW * wRatio);
+        const bh = Math.round(outH * hRatio);
+        const bx = Math.round(outW * clampedX);
+        const by = Math.round(outH * clampedY);
+
+        const boardCanvas = document.createElement('canvas');
+        boardCanvas.width = bw;
+        boardCanvas.height = bh;
+        drawBlackboardToCanvas(boardCanvas.getContext('2d'), bw, bh);
+        ctx.drawImage(boardCanvas, bx, by);
+
+        // 3. JPEG品質を段階調整して 250KB〜350KB (中心300KB) に収める
+        let q = 0.82;
+        let blob = await canvasToJpegBlob(workCanvas, q);
+        let sizeKB = blob.size / 1024;
+
+        // 250KB未満なら350KBを超えない範囲で品質を引き上げる
+        if (sizeKB < 250) {
+          for (const upQ of [0.88, 0.93, 0.96]) {
+            const tryBlob = await canvasToJpegBlob(workCanvas, upQ);
+            if (tryBlob.size / 1024 <= 350) {
+              blob = tryBlob; q = upQ; sizeKB = blob.size / 1024;
+              if (sizeKB >= 250) break;
+            } else {
+              break;
+            }
+          }
+        }
+
+        // 350KBを超えている場合は品質を0.05ずつ下げる（文字判読性維持のため下限0.55）
+        while (sizeKB > 350 && q - 0.05 >= 0.55) {
+          q = Math.round((q - 0.05) * 100) / 100;
+          blob = await canvasToJpegBlob(workCanvas, q);
+          sizeKB = blob.size / 1024;
+        }
+
+        finalBlob = blob; finalW = outW; finalH = outH; usedQ = q;
+        if (sizeKB <= 350) break;
+      }
+
+      currentBlob = finalBlob;
+      currentFileName = buildOutputFileName();
+      const sizeKB = Math.round((finalBlob.size / 1024) * 10) / 10;
+      const url = URL.createObjectURL(finalBlob);
+
+      document.getElementById('resultImage').src = url;
+      document.getElementById('resultSizeText').textContent = `約 ${sizeKB} KB`;
+      document.getElementById('resultSpecText').textContent =
+        `形式: JPEG (.jpg) ／ 解像度: ${finalW} × ${finalH} px ／ 品質: ${Math.round(usedQ * 100)}%`;
+      document.getElementById('resultFileNameText').textContent =
+        `保存ファイル名: ${currentFileName}`;
+
+      const dl = document.getElementById('directDownloadLink');
+      dl.href = url;
+      dl.download = currentFileName;
+
+      showScreen('resultScreen', '3. 撮影結果の確認・保存', '黒板が合成されたJPEG画像を確認して保存してください');
+    }
+
+    async function shareOrSaveImage() {
+      if (!currentBlob) return;
+      const file = new File([currentBlob], currentFileName, { type: 'image/jpeg' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: currentFileName,
+            text: 'デジタル工事黒板付き写真'
+          });
+          return;
+        } catch (err) {
+          if (err.name === 'AbortError') return;
+        }
+      }
+      // Web Share API非対応環境（PCブラウザ等）では直接ダウンロードを実行
+      document.getElementById('directDownloadLink').click();
+    }
+
+    // 初期化実行
+    renderFieldsEditor();
+    syncFooterInputs();
+    updateUIAndPreviews();
+  </script>
+
+  <script>
+    // GitHub Pages上でオフライン起動を有効にする。
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch((error) => {
+          console.warn('Service Worker registration failed:', error);
+        });
+      });
+    }
+  </script>
+</body>
+</html>

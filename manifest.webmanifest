@@ -1,0 +1,13 @@
+{
+  "name": "デジタル工事黒板カメラ",
+  "short_name": "工事黒板",
+  "description": "iPhone対応のデジタル工事黒板付き写真撮影アプリ",
+  "lang": "ja",
+  "id": "./",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F3F4F6",
+  "theme_color": "#0D5A34"
+}

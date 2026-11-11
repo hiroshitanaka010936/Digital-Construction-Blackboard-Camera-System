@@ -1,7 +1,7 @@
 {
   "name": "デジタル工事黒板カメラ",
   "short_name": "工事黒板",
-  "description": "iPhone対応のデジタル工事黒板付き写真撮影アプリ",
+  "description": "連続撮影・自動保存対応のデジタル工事黒板カメラ",
   "lang": "ja",
   "id": "./",
   "start_url": "./",
